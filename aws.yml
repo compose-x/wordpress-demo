@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  wordpress:
+    environment:
+      WORDPRESS_SKIP_INSTALL: "yes"
+    deploy:
+      resources:
+        reservations:
+          cpus: 1.0
+          memory: 1G
+
+---
+# Storage settings
+
+x-rds:
+  wordpress-db:
+    Properties:
+      Engine: "aurora-mysql"
+      EngineVersion: "5.7"
+      BackupRetentionPeriod: 1
+      DatabaseName: wordpress
+      StorageEncrypted: True
+      Tags:
+        - Key: Name
+          Value: "dummy-db"
+    Services:
+      - name: wordpress
+        access: RW
+        SecretsMappings:
+          Mappings:
+            host: MARIADB_HOST
+            port: MARIADB_PORT_NUMBER
+            username: WORDPRESS_DATABASE_USER
+            password: WORDPRESS_DATABASE_PASSWORD
+            dbname: WORDPRESS_DATABASE_NAME
+
+x-s3:
+  wp-data-bucket:
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: True
+          BlockPublicPolicy: True
+          IgnorePublicAcls: True
+          RestrictPublicBuckets: False
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+    Services:
+      - name: wordpress
+        access:
+          Bucket: ListOnly
+          Objects: RW
+
+---
+# DNS and Ingress settings
+
+x-dns:
+  PublicZone:
+    Use: Z0428490REDACTED
+  Records:
+    - Properties:
+        Name: wordpress.demos.lambda-my-aws.io
+        Type: A
+      Target: x-elbv2::wordpress-lb
+
+
+x-acm:
+  wordpress-demo:
+    Properties:
+      DomainName: wordpress.demos.lambda-my-aws.io
+      DomainValidationOptions:
+        - HostedZoneId: Z0428490REDACTED
+          DomainName: wordpress.demos.lambda-my-aws.io
+      ValidationMethod: DNS
+
+x-elbv2:
+  wordpress-lb:
+    Properties:
+      Scheme: internet-facing
+      Type: application
+    MacroParameters:
+      Ingress:
+        ExtSources:
+          - IPv4: 0.0.0.0/0
+            Name: ANY
+            Description: "ANY"
+    Listeners:
+      - Port: 80
+        Protocol: HTTP
+        DefaultActions:
+          - Redirect: HTTP_TO_HTTPS
+      - Port: 443
+        Protocol: HTTPS
+        Certificates:
+          - x-acm: wordpress-demo
+        Targets:
+          - name: wordpress:wordpress
+            access: /
+
+    Services:
+      - name: wordpress:wordpress
+        port: 8080
+        protocol: HTTP
+        healthcheck: 8080:HTTP:/:7:2:15:5
+
+
+---
+#AWS Networking settings
+
+x-vpc:
+  Lookup:
+    VpcId:
+      Tags:
+        - Name: dev-vpc
+    AppSubnets:
+      Tags:
+        - vpc::usage: application
+        - aws:cloudformation:stack-name: dev-vpc
+    PublicSubnets:
+      Tags:
+        - vpc::usage: public
+        - aws:cloudformation:stack-name: dev-vpc
+    StorageSubnets:
+      Tags:
+        - vpc::usage: application
+        - aws:cloudformation:stack-name: dev-vpc
+
+---
+# ECS Cluster settings
+
+
+x-cluster:
+  Properties:
+    CapacityProviders:
+      - FARGATE
+      - FARGATE_SPOT
+    ClusterName: demo
+    DefaultCapacityProviderStrategy:
+      - Base: 2
+        CapacityProvider: FARGATE_SPOT
+        Weight: 2
+      - CapacityProvider: FARGATE
+        Weight: 1

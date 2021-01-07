@@ -1,0 +1,11 @@
+---
+# Simplified docker-compose to have only the common definition of our wordpress
+
+version: '3.8'
+
+services:
+  wordpress:
+    image: public.ecr.aws/bitnami/wordpress:5-debian-10
+    ports:
+      - '80:8080'
+      - '443:8443'
