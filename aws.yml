@@ -10,7 +10,7 @@ services:
           cpus: 1.0
           memory: 1G
 
----
+
 # Storage settings
 
 x-rds:
@@ -54,7 +54,7 @@ x-s3:
           Bucket: ListOnly
           Objects: RW
 
----
+
 # DNS and Ingress settings
 
 x-dns:
@@ -107,7 +107,6 @@ x-elbv2:
         healthcheck: 8080:HTTP:/:7:2:15:5
 
 
----
 #AWS Networking settings
 
 x-vpc:
@@ -128,7 +127,7 @@ x-vpc:
         - vpc::usage: application
         - aws:cloudformation:stack-name: dev-vpc
 
----
+
 # ECS Cluster settings
 
 
