@@ -29,11 +29,11 @@ Once that is done, all you have to do is deploy to AWS via
 
 .. code-block:: yaml
 
-   ecs-composex up -f docker-compose.yml -f aws.yml -n wordpress-demo
+   ecs-compose-x up -f docker-compose.yml -f aws.yml -n wordpress-demo
 
 .. hint::
 
    If you do not wish to specify a bucket you can let ecs-composex create all the necessary for you. Simply run
 
-   ecs-composex init
+   ecs-compose-x init
 
