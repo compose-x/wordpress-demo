@@ -2,14 +2,36 @@ version: '3.8'
 
 services:
   wordpress:
-    environment:
-      WORDPRESS_SKIP_INSTALL: "yes"
     deploy:
       resources:
         reservations:
           cpus: 1.0
           memory: 1G
+    volumes:
+      - persistent:/bitnami/wordpress
+    environment:
+      WORDPRESS_SKIP_INSTALL: "no"
+    x-scaling:
+      Range: 1-5
+    x-alarms:
+      Predefined:
+        HighRamUsageAndMaxScaledOut:
+          Topics:
+            - x-sns: alarms
 
+
+volumes:
+  persistent:
+    x-efs:
+      Properties:
+        LifecyclePolicies:
+        TransitionToIA: AFTER_14_DAYS
+      MacroParameters:
+        EnforceIamAuth: True
+
+x-sns:
+  Topics:
+    alarms: {}
 
 # Storage settings
 
