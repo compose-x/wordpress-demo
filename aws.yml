@@ -1,135 +1,37 @@
-version: '3.8'
-
 services:
   wordpress:
     deploy:
       resources:
         reservations:
-          cpus: 1.0
+          cpus: "1.0"
           memory: 1G
+    environment:
+      WORDPRESS_SKIP_INSTALL: 'no'
+      WORDPRESS_USERNAME: superuser
+      WORDPRESS_PASSWORD: 'ch@ngeM3Please'
     volumes:
       - persistent:/bitnami/wordpress
-    environment:
-      WORDPRESS_SKIP_INSTALL: "no"
-    x-scaling:
-      Range: 1-5
     x-alarms:
       Predefined:
         HighRamUsageAndMaxScaledOut:
           Topics:
             - x-sns: alarms
-
-
+    x-scaling:
+      Range: 1-5
+version: '3.8'
 volumes:
   persistent:
     x-efs:
-      Properties:
-        LifecyclePolicies:
-        TransitionToIA: AFTER_14_DAYS
       MacroParameters:
-        EnforceIamAuth: True
-
-x-sns:
-  Topics:
-    alarms: {}
-
-# Storage settings
-
-x-rds:
-  wordpress-db:
-    Properties:
-      Engine: "aurora-mysql"
-      EngineVersion: "5.7"
-      BackupRetentionPeriod: 1
-      DatabaseName: wordpress
-      StorageEncrypted: True
-      Tags:
-        - Key: Name
-          Value: "dummy-db"
-    Services:
-      - name: wordpress
-        access: RW
-        SecretsMappings:
-          Mappings:
-            host: MARIADB_HOST
-            port: MARIADB_PORT_NUMBER
-            username: WORDPRESS_DATABASE_USER
-            password: WORDPRESS_DATABASE_PASSWORD
-            dbname: WORDPRESS_DATABASE_NAME
-
-x-s3:
-  wp-data-bucket:
-    Properties:
-      AccessControl: BucketOwnerFullControl
-      PublicAccessBlockConfiguration:
-          BlockPublicAcls: True
-          BlockPublicPolicy: True
-          IgnorePublicAcls: True
-          RestrictPublicBuckets: False
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-    Services:
-      - name: wordpress
-        access:
-          Bucket: ListOnly
-          Objects: RW
-
-
-# DNS and Ingress settings
-
-x-dns:
-  PublicZone:
-    Name: demos.lambda-my-aws.io
-    Lookup: True
-  Records:
-    - Properties:
-        Name: wordpress.demos.lambda-my-aws.io
-        Type: A
-      Target: x-elbv2::wordpress-lb
-
-
+        EnforceIamAuth: true
+      Properties:
+        LifecyclePolicies: null
+        TransitionToIA: AFTER_14_DAYS
 x-acm:
   wordpress-demo:
     Lookup:
       Tags:
-        - Name: demos.lambda-my-aws.io
-        - wildcard: "True"
-
-x-elbv2:
-  wordpress-lb:
-    Properties:
-      Scheme: internet-facing
-      Type: application
-    MacroParameters:
-      Ingress:
-        ExtSources:
-          - IPv4: 0.0.0.0/0
-            Name: ANY
-            Description: "ANY"
-    Listeners:
-      - Port: 80
-        Protocol: HTTP
-        DefaultActions:
-          - Redirect: HTTP_TO_HTTPS
-      - Port: 443
-        Protocol: HTTPS
-        Certificates:
-          - x-acm: wordpress-demo
-        Targets:
-          - name: wordpress:wordpress
-            access: /
-
-    Services:
-      - name: wordpress:wordpress
-        port: 8080
-        protocol: HTTP
-        healthcheck: 8080:HTTP:/:7:2:15:5
-
-
-# ECS Cluster settings
-
+        - Name: wildcard.${DOMAIN_NAME:-demos.bdd-testing.compose-x.io}
 
 x-cluster:
   Properties:
@@ -143,3 +45,85 @@ x-cluster:
         Weight: 2
       - CapacityProvider: FARGATE
         Weight: 1
+x-elbv2:
+  wordpress-lb:
+    DnsAliases:
+      - Route53Zone: x-route53::PublicZone
+        Names:
+          - wordpress.${DOMAIN_NAME:-demos.bdd-testing.compose-x.io}
+    Listeners:
+      - DefaultActions:
+          - Redirect: HTTP_TO_HTTPS
+        Port: 80
+        Protocol: HTTP
+      - Certificates:
+          - x-acm: wordpress-demo
+        Port: 443
+        Protocol: HTTPS
+        Targets:
+          - Conditions:
+              - Field: host-header
+                HostHeaderConfig:
+                  Values:
+                    - wordpress.${DOMAIN_NAME:-demos.bdd-testing.compose-x.io}
+            name: wordpress:wordpress
+    MacroParameters:
+      Ingress:
+        ExtSources:
+          - Description: ANY
+            IPv4: 0.0.0.0/0
+            Name: ANY
+    Properties:
+      Scheme: internet-facing
+      Type: application
+    Services:
+      - healthcheck: 8080:HTTP:/:7:2:15:5
+        name: wordpress:wordpress
+        port: 8080
+        protocol: HTTP
+x-rds:
+  wordpress-db:
+    Properties:
+      BackupRetentionPeriod: 1
+      DatabaseName: wordpress
+      Engine: aurora-mysql
+      EngineVersion: '5.7'
+      StorageEncrypted: true
+      Tags:
+        - Key: Name
+          Value: dummy-db
+    Services:
+      wordpress:
+        Access:
+          DBCluster: RO
+        SecretsMappings:
+          Mappings:
+            dbname: WORDPRESS_DATABASE_NAME
+            host: MARIADB_HOST
+            password: WORDPRESS_DATABASE_PASSWORD
+            port: MARIADB_PORT_NUMBER
+            username: WORDPRESS_DATABASE_USER
+x-route53:
+  PublicZone:
+    Lookup: true
+    Name: bdd-testing.compose-x.io
+x-s3:
+  wp-data-bucket:
+    Properties:
+      AccessControl: BucketOwnerFullControl
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+    Services:
+      wordpress:
+        Access:
+          bucket: ListOnly
+          objects: RW
+x-sns:
+  alarms: {}

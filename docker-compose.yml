@@ -6,10 +6,12 @@ version: '3.8'
 services:
   wordpress:
     image: public.ecr.aws/bitnami/wordpress:latest
+    x-docker_opts:
+      InterpolateWithDigest: true
     ports:
       - '80:8080'
       - '443:8443'
-    user: 1001
+    user: '1001'
 
 volumes:
   persistent:
