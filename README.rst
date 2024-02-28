@@ -47,6 +47,11 @@ To add WAF, simply the run the command including the ``wafv2.yaml`` to the comma
    ecs-compose-x up -f docker-compose.yml -f aws.yml -p wordpress-demo -f wafv2.yml
 
 
+.. note::
+
+   Enabling the WAF with the defined rules here will deny access to ``/wp-admin``. You can create rules to allow your IP addresses to access it.
+
+
 x-elbv2 Conditions
 -------------------
 

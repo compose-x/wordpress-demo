@@ -99,9 +99,9 @@ x-rds:
         SecretsMappings:
           Mappings:
             dbname: WORDPRESS_DATABASE_NAME
-            host: MARIADB_HOST
+            host: WORDPRESS_DATABASE_HOST
             password: WORDPRESS_DATABASE_PASSWORD
-            port: MARIADB_PORT_NUMBER
+            port: WORDPRESS_DATABASE_PORT_NUMBER
             username: WORDPRESS_DATABASE_USER
 x-route53:
   PublicZone:
