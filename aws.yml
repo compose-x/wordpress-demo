@@ -77,8 +77,8 @@ x-elbv2:
       Scheme: internet-facing
       Type: application
     Services:
-      - healthcheck: 8080:HTTP:/:7:2:15:5
-        name: wordpress:wordpress
+      wordpress:wordpress:
+        healthcheck: 8080:HTTP:/:7:2:15:5
         port: 8080
         protocol: HTTP
 x-rds:
